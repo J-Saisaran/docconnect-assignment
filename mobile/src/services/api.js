@@ -154,6 +154,7 @@ const apiClient = axios.create({
 });
 
 const STORAGE_KEY_REQUESTED = '@docconnect_requested_user_ids';
+const STORAGE_KEY_CANCELLED = '@docconnect_cancelled_user_ids';
 
 export const getLocalRequestedIds = async () => {
   try {
@@ -164,11 +165,27 @@ export const getLocalRequestedIds = async () => {
   }
 };
 
+export const getLocalCancelledIds = async () => {
+  try {
+    const json = await AsyncStorage.getItem(STORAGE_KEY_CANCELLED);
+    return json ? JSON.parse(json) : [];
+  } catch (err) {
+    return [];
+  }
+};
+
 export const saveLocalRequestedId = async (userId) => {
   try {
+    const idStr = userId.toString();
+    // 1. Remove from cancelled list
+    const cancelled = await getLocalCancelledIds();
+    const updatedCancelled = cancelled.filter((id) => id !== idStr);
+    await AsyncStorage.setItem(STORAGE_KEY_CANCELLED, JSON.stringify(updatedCancelled));
+
+    // 2. Add to requested list
     const existing = await getLocalRequestedIds();
-    if (!existing.includes(userId)) {
-      const updated = [...existing, userId];
+    if (!existing.includes(idStr)) {
+      const updated = [...existing, idStr];
       await AsyncStorage.setItem(STORAGE_KEY_REQUESTED, JSON.stringify(updated));
       return updated;
     }
@@ -200,22 +217,24 @@ export const fetchPosts = async () => {
  */
 export const fetchUsers = async (currentUserId = LOGGED_IN_USER_ID) => {
   const localRequested = await getLocalRequestedIds();
-  const localRequestedSet = new Set(localRequested);
+  const localCancelled = await getLocalCancelledIds();
+  const cancelledSet = new Set(localCancelled);
 
   try {
     const url = `${currentBaseUrl}/users?currentUserId=${currentUserId}`;
     const response = await apiClient.get(url);
     const data = response.data;
 
-    const apiRequested = data.requestedUserIds || [];
-    const mergedRequestedSet = new Set([...localRequested, ...apiRequested]);
+    // Filter out any IDs that have been explicitly cancelled
+    const apiRequested = (data.requestedUserIds || []).filter((id) => !cancelledSet.has(id.toString()));
+    const activeLocal = localRequested.filter((id) => !cancelledSet.has(id.toString()));
 
-    if (apiRequested.length > 0) {
-      await AsyncStorage.setItem(
-        STORAGE_KEY_REQUESTED,
-        JSON.stringify(Array.from(mergedRequestedSet))
-      );
-    }
+    const mergedRequestedSet = new Set([...activeLocal, ...apiRequested]);
+
+    await AsyncStorage.setItem(
+      STORAGE_KEY_REQUESTED,
+      JSON.stringify(Array.from(mergedRequestedSet))
+    );
 
     const usersWithStatus = (data.users || []).map((user) => ({
       ...user,
@@ -229,6 +248,9 @@ export const fetchUsers = async (currentUserId = LOGGED_IN_USER_ID) => {
     };
   } catch (err) {
     console.warn(`[DocConnect] Backend unreachable at ${currentBaseUrl}, using local seeded users:`, err.message);
+    const activeLocal = localRequested.filter((id) => !cancelledSet.has(id.toString()));
+    const localRequestedSet = new Set(activeLocal);
+
     const usersWithStatus = FALLBACK_USERS.map((user) => ({
       ...user,
       isRequested: localRequestedSet.has(user._id.toString()),
@@ -241,6 +263,7 @@ export const fetchUsers = async (currentUserId = LOGGED_IN_USER_ID) => {
     };
   }
 };
+
 
 /**
  * GET /users/me - Fetch current logged-in user profile
@@ -259,49 +282,77 @@ export const fetchCurrentUser = async (currentUserId = LOGGED_IN_USER_ID) => {
  * POST /connect - Send connection request and persist requested state
  */
 export const sendConnectRequest = async (recipientId, senderId = LOGGED_IN_USER_ID) => {
+  const idStr = recipientId.toString();
+
   // Always persist to local storage immediately
-  await saveLocalRequestedId(recipientId);
+  await saveLocalRequestedId(idStr);
 
   try {
     const url = `${currentBaseUrl}/connect`;
     const response = await apiClient.post(url, {
-      recipientId,
+      recipientId: idStr,
       senderId,
     });
     return response.data;
   } catch (err) {
     console.warn('[DocConnect] Connect saved locally (backend unreachable):', err.message);
-    return { success: true, recipientId, status: 'requested' };
+    return { success: true, recipientId: idStr, status: 'requested' };
   }
 };
 
 /**
- * Reverts connection request for a specific user ID
+ * Cancel connection request for a specific user ID
+ * Persists cancellation across reloads, updates local storage, and notifies backend.
  */
-export const removeLocalRequestedId = async (userId) => {
+export const cancelConnectRequest = async (recipientId, senderId = LOGGED_IN_USER_ID) => {
   try {
-    const existing = await getLocalRequestedIds();
-    const updated = existing.filter((id) => id !== userId && id !== userId?.toString());
-    await AsyncStorage.setItem(STORAGE_KEY_REQUESTED, JSON.stringify(updated));
-    await apiClient.delete(`${currentBaseUrl}/connect/${userId}`).catch(() => {});
-    return updated;
+    const idStr = recipientId.toString();
+
+    // 1. Remove from requested list
+    const existingRequested = await getLocalRequestedIds();
+    const updatedRequested = existingRequested.filter((id) => id !== idStr);
+    await AsyncStorage.setItem(STORAGE_KEY_REQUESTED, JSON.stringify(updatedRequested));
+
+    // 2. Add to cancelled list so reloads/refreshes do not revive it
+    const existingCancelled = await getLocalCancelledIds();
+    if (!existingCancelled.includes(idStr)) {
+      const updatedCancelled = [...existingCancelled, idStr];
+      await AsyncStorage.setItem(STORAGE_KEY_CANCELLED, JSON.stringify(updatedCancelled));
+    }
+
+    // 3. Notify backend via DELETE and POST /connect/cancel
+    await apiClient.delete(`${currentBaseUrl}/connect/${idStr}`).catch(() => {});
+    await apiClient.post(`${currentBaseUrl}/connect/cancel`, { recipientId: idStr, senderId }).catch(() => {});
+    await apiClient.post(`${currentBaseUrl}/connect`, { recipientId: idStr, senderId, action: 'cancel' }).catch(() => {});
+
+    return true;
   } catch (err) {
-    console.warn('Error removing requested id:', err);
-    return [];
+    console.warn('[DocConnect] Error cancelling connect request:', err);
+    return false;
   }
 };
 
+// Alias for backwards compatibility
+export const removeLocalRequestedId = cancelConnectRequest;
+
 /**
- * Reverts all requested connections (clears AsyncStorage + MongoDB records)
+ * Reset all connection requests (clears AsyncStorage + MongoDB records)
  */
 export const clearAllRequestedState = async () => {
   try {
     await AsyncStorage.removeItem(STORAGE_KEY_REQUESTED);
+
+    // Mark all users as cancelled locally so fresh state is maintained on reloads
+    const allUserIds = FALLBACK_USERS.map((u) => u._id.toString());
+    await AsyncStorage.setItem(STORAGE_KEY_CANCELLED, JSON.stringify(allUserIds));
+
     await apiClient.post(`${currentBaseUrl}/connect/reset`).catch(() => {});
+    await apiClient.get(`${currentBaseUrl}/connect/reset`).catch(() => {});
     return true;
   } catch (err) {
     console.warn('Error clearing requested state:', err);
     return false;
   }
 };
+
 

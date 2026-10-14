@@ -14,15 +14,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { COLORS, FONTS } from '../constants/theme';
 import { UserListItem } from '../components/UserListItem';
-import { DiscoverIcon, BackArrowIcon } from '../components/SvgIcons';
+import { DiscoverIcon, BackArrowIcon, RefreshIcon } from '../components/SvgIcons';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 import {
   fetchUsers,
   sendConnectRequest,
   clearAllRequestedState,
-  removeLocalRequestedId,
+  cancelConnectRequest,
 } from '../services/api';
+
 
 
 export const DiscoverScreen = () => {
@@ -70,15 +71,15 @@ export const DiscoverScreen = () => {
     }
   };
 
-  const handleUndoConnect = async (userId) => {
-    // Revert single user back to '+' Add User icon
+  const handleCancelRequest = async (userId) => {
+    // Optimistically update UI immediately to 'isRequested: false'
     setUsers((prev) =>
       prev.map((u) => (u._id === userId ? { ...u, isRequested: false } : u))
     );
     try {
-      await removeLocalRequestedId(userId);
+      await cancelConnectRequest(userId);
     } catch (err) {
-      console.error('Failed to undo connect request:', err);
+      console.error('Failed to cancel connect request:', err);
     }
   };
 
@@ -139,17 +140,28 @@ export const DiscoverScreen = () => {
         </View>
       </View>
 
-      {/* Subtitle: "X profile matches" - Long press to reset all */}
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onLongPress={handleResetAll}
-        delayLongPress={700}
-        style={styles.matchCountContainer}
-      >
-        <Text style={styles.matchCountText}>
-          {filteredUsers.length} profile {filteredUsers.length === 1 ? 'match' : 'matches'}
-        </Text>
-      </TouchableOpacity>
+      {/* Subtitle: "X profile matches" with Reload Button */}
+      <View style={styles.matchCountContainer}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onLongPress={handleResetAll}
+          delayLongPress={700}
+        >
+          <Text style={styles.matchCountText}>
+            {filteredUsers.length} profile {filteredUsers.length === 1 ? 'match' : 'matches'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.reloadButton}
+          activeOpacity={0.7}
+          onPress={onRefresh}
+          accessibilityLabel="Reload profiles"
+        >
+          <RefreshIcon size={14} color={COLORS.primary} />
+          <Text style={styles.reloadButtonText}>Reload</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.headerDivider} />
 
       {/* Vertical List of People matching Discover - search.png */}
@@ -160,10 +172,11 @@ export const DiscoverScreen = () => {
           <UserListItem
             user={item}
             onConnect={handleConnect}
-            onUndoConnect={handleUndoConnect}
+            onCancelRequest={handleCancelRequest}
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+
 
         ListEmptyComponent={
           loading ? (
@@ -231,6 +244,9 @@ const styles = StyleSheet.create({
   matchCountContainer: {
     paddingHorizontal: 20,
     paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   matchCountText: {
     fontFamily: FONTS.medium,
@@ -238,6 +254,21 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     letterSpacing: -0.2,
   },
+  reloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    gap: 4,
+  },
+  reloadButtonText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+
   headerDivider: {
     height: 1,
     backgroundColor: COLORS.border,

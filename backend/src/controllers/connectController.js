@@ -16,7 +16,19 @@ const createConnectRequest = async (req, res) => {
       });
     }
 
+    // Check if cancellation action is specified
+    if (req.body.action === 'cancel') {
+      await ConnectionRequest.deleteMany({ sender: senderId, recipient: recipientId });
+      return res.status(200).json({
+        success: true,
+        message: 'Connection request cancelled successfully',
+        recipientId,
+        status: 'none',
+      });
+    }
+
     if (senderId === recipientId) {
+
       return res.status(400).json({
         success: false,
         message: 'Cannot send connection request to yourself',
@@ -113,10 +125,32 @@ const deleteConnectRequest = async (req, res) => {
   }
 };
 
+// POST /connect/cancel - Cancel request
+const cancelConnectRequest = async (req, res) => {
+  try {
+    const { recipientId, senderId: reqSenderId } = req.body;
+    const senderId = reqSenderId || req.headers['x-user-id'] || LOGGED_IN_USER_ID;
+    await ConnectionRequest.deleteMany({
+      sender: senderId,
+      recipient: recipientId,
+    });
+    return res.status(200).json({
+      success: true,
+      message: `Connection request to ${recipientId} cancelled`,
+      recipientId,
+      status: 'none',
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   createConnectRequest,
   getRequestedUserIds,
   resetConnections,
   deleteConnectRequest,
+  cancelConnectRequest,
 };
+
 

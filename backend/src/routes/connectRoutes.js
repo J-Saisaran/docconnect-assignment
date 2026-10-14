@@ -5,10 +5,14 @@ const {
   getRequestedUserIds,
   resetConnections,
   deleteConnectRequest,
+  cancelConnectRequest,
 } = require('../controllers/connectController');
 
 // POST /connect
 router.post('/', createConnectRequest);
+
+// POST /connect/cancel
+router.post('/cancel', cancelConnectRequest);
 
 // POST or GET /connect/reset
 router.post('/reset', resetConnections);
@@ -21,4 +25,5 @@ router.delete('/:recipientId', deleteConnectRequest);
 router.get('/requested', getRequestedUserIds);
 
 module.exports = router;
+
 

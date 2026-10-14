@@ -4,7 +4,7 @@ import { COLORS, FONTS } from '../constants/theme';
 import { resolveImageSource } from '../constants/assetsMap';
 import { AddUserIcon, LocationPinIcon } from './SvgIcons';
 
-export const UserListItem = ({ user, onConnect, onUndoConnect }) => {
+export const UserListItem = ({ user, onConnect, onCancelRequest, onUndoConnect }) => {
   const [connecting, setConnecting] = useState(false);
   const isRequested = user?.isRequested;
 
@@ -13,20 +13,22 @@ export const UserListItem = ({ user, onConnect, onUndoConnect }) => {
   const location = user?.location || 'Chennai, Tamil Nadu';
   const avatarSource = resolveImageSource(user?.profileImage);
 
+  const handleCancel = onCancelRequest || onUndoConnect;
+
   const handlePress = async () => {
     if (connecting) return;
 
     if (isRequested) {
-      if (onUndoConnect) {
+      if (handleCancel) {
         Alert.alert(
-          'Revert to Add User?',
-          `Revert connection request for ${name} back to the Add User (+) icon?`,
+          'Cancel Request?',
+          `Are you sure you want to cancel the connection request to ${name}?`,
           [
-            { text: 'Keep Requested', style: 'cancel' },
+            { text: 'Keep Request', style: 'cancel' },
             {
-              text: 'Revert to (+)',
+              text: 'Cancel Request',
               style: 'destructive',
-              onPress: () => onUndoConnect(user._id),
+              onPress: () => handleCancel(user._id),
             },
           ]
         );
@@ -43,6 +45,7 @@ export const UserListItem = ({ user, onConnect, onUndoConnect }) => {
       setConnecting(false);
     }
   };
+
 
   return (
     <View style={styles.container}>
