@@ -193,62 +193,10 @@ This is guaranteed via a **dual-persistence strategy**:
 
 ---
 
-## 🎤 Interview & Walkthrough Preparation
+## 📱 Supported Platforms & Technologies
 
-### 1. How to Add Phone OTP Authentication to this App
-If asked during the walkthrough how authentication would be added:
-1. **Backend**:
-   - Add a `phone` and `isVerified` field to the `User` schema.
-   - Create an `Otp` schema with TTL index (e.g. expires in 5 minutes) storing hashed OTPs.
-   - **`POST /auth/send-otp`**: Generates a 6-digit cryptographically secure OTP, saves hashed OTP in DB, and dispatches SMS via Twilio or MSG91.
-   - **`POST /auth/verify-otp`**: Verifies submitted OTP against hash. If valid, generates JWT **Access Token** (short-lived, 15m) and **Refresh Token** (long-lived, 30d stored in httpOnly cookie or DB).
-2. **Mobile App**:
-   - Add `AuthContext` to manage `userToken` and `isAuthenticated` state.
-   - Store JWT in `expo-secure-store` (hardware-backed keychain/keystore).
-   - Use Axios interceptors: attach `Bearer ${token}` to all outgoing requests and automatically handle 401s by refreshing the access token.
+- **Mobile**: React Native (Expo SDK 52) with React Navigation, Safe Area Context, and SVG icons.
+- **Web**: React Native Web for local browser preview.
+- **Backend**: Node.js, Express.js, MongoDB (Mongoose ODM) with automatic zero-config In-Memory MongoDB fallback.
+- **Data Persistence**: React Native AsyncStorage client-side cache + MongoDB persistent storage.
 
-### 2. How to Add Real-Time Chat to this App
-If asked during the walkthrough how chat would be added:
-1. **Backend**:
-   - Use **Socket.io** attached to the Express HTTP server.
-   - Schemas:
-     - `Conversation`: `{ participants: [User], lastMessage: Message, unreadCounts: Map }`
-     - `Message`: `{ conversationId, sender: User, text, sharedPost: Post, createdAt }`
-   - Socket Events:
-     - `socket.join(conversationId)`
-     - `send_message`: Saves message to MongoDB, broadcasts `new_message` to room, and sends push notifications (via Expo Push Notification service) to offline recipients.
-2. **Mobile App**:
-   - Initialize `socket.io-client` in a `ChatContext`.
-   - Implement optimistic UI updates: immediately display the message in the chat bubble before socket ACK.
-   - Support rich card rendering: if `message.sharedPost` exists, render the mini `PostCard` preview directly in the chat bubble with a "View Post" action.
-
-### 3. Quick Live Code Modifications (Cheat Sheet)
-- **Change Primary Brand Color**: Modify `mobile/src/constants/theme.js` -> `COLORS.primary` and `COLORS.primaryDark`.
-- **Add Search Filter in Discover**: Logic is already modularized in `filteredUsers` in `mobile/src/screens/DiscoverScreen.js`.
-- **Toggle Like Count**: Handled in `mobile/src/components/PostCard.js` -> `handleLikeToggle`.
-- **Reset Requested Status**: Clear storage via `AsyncStorage.clear()` or call seed script `npm run seed`.
-
----
-
-## ✉️ Submission Email Format
-
-**To**: `hr@thebrandopedia.in`  
-**Subject**: `Assignment Submission - [Your Name]`
-
-```text
-Dear Hiring Team,
-
-I have completed the React Native Full-Stack Developer assignment for TheBrandopedia.in.
-
-Please find the submission details below:
-1. GitHub Repository: https://github.com/[Your-Username]/docconnect-assignment
-2. Screen Recording Video: [Attach video or Google Drive link showing Home Feed, Discover Grid, Connect flow, and App Restart demonstrating persistent Requested state]
-3. Documentation: The README in the repository includes full setup instructions, seed details, architecture diagrams, and walkthrough notes for OTP Auth & Chat.
-
-I look forward to our Saturday in-person code walkthrough at your Chennai office!
-
-Best regards,
-[Your Name]
-[Your Phone Number]
-[Your Portfolio / LinkedIn]
-```
