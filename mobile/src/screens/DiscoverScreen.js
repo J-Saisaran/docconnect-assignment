@@ -7,17 +7,20 @@ import {
   StyleSheet,
   RefreshControl,
   StatusBar,
+  TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { COLORS, FONTS } from '../constants/theme';
-import { UserCard } from '../components/UserCard';
-import { DiscoverIcon } from '../components/SvgIcons';
+import { UserListItem } from '../components/UserListItem';
+import { DiscoverIcon, BackArrowIcon } from '../components/SvgIcons';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
 import { fetchUsers, sendConnectRequest } from '../services/api';
 
 export const DiscoverScreen = () => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const [users, setUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -31,7 +34,7 @@ export const DiscoverScreen = () => {
       setUsers(data.users || []);
     } catch (err) {
       console.error('DiscoverScreen load error:', err);
-      setError(err.message || 'Failed to load discover profiles.');
+      setError(err.message || 'Failed to load profiles.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -57,10 +60,6 @@ export const DiscoverScreen = () => {
       await sendConnectRequest(userId);
     } catch (err) {
       console.error('Failed to send connect request:', err);
-      // Revert if API fails
-      setUsers((prev) =>
-        prev.map((u) => (u._id === userId ? { ...u, isRequested: false } : u))
-      );
     }
   };
 
@@ -75,10 +74,19 @@ export const DiscoverScreen = () => {
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 16) }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.backgroundLight} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
 
-      {/* Top Search Bar */}
-      <View style={styles.searchContainer}>
+      {/* Top Search Header matching Discover - search.png */}
+      <View style={styles.searchHeader}>
+        <TouchableOpacity
+          style={styles.backButton}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('Home')}
+          accessibilityLabel="Back to Home"
+        >
+          <BackArrowIcon size={20} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+
         <View style={styles.searchBar}>
           <DiscoverIcon size={20} color={COLORS.textSecondary} />
           <TextInput
@@ -88,23 +96,27 @@ export const DiscoverScreen = () => {
             value={searchQuery}
             onChangeText={setSearchQuery}
             clearButtonMode="while-editing"
+            autoCorrect={false}
           />
         </View>
       </View>
 
-      {/* Section Title */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>People you may know</Text>
+      {/* Subtitle: "X profile matches" matching Discover - search.png */}
+      <View style={styles.matchCountContainer}>
+        <Text style={styles.matchCountText}>
+          {filteredUsers.length} profile {filteredUsers.length === 1 ? 'match' : 'matches'}
+        </Text>
       </View>
+      <View style={styles.headerDivider} />
 
-      {/* 2-Column Grid */}
+      {/* Vertical List of People matching Discover - search.png */}
       <FlatList
         data={filteredUsers}
         keyExtractor={(item) => item._id.toString()}
-        numColumns={2}
         renderItem={({ item }) => (
-          <UserCard user={item} onConnect={handleConnect} />
+          <UserListItem user={item} onConnect={handleConnect} />
         )}
+        ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
         ListEmptyComponent={
           loading ? (
             <LoadingState message="Finding medical professionals..." />
@@ -125,7 +137,6 @@ export const DiscoverScreen = () => {
           />
         }
         contentContainerStyle={styles.listContent}
-        columnWrapperStyle={styles.columnWrapper}
         showsVerticalScrollIndicator={false}
       />
     </View>
@@ -135,17 +146,29 @@ export const DiscoverScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.backgroundLight,
+    backgroundColor: COLORS.white,
   },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  searchBar: {
+  searchHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFEFEA',
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 14,
     paddingHorizontal: 14,
     height: 48,
     gap: 10,
@@ -157,26 +180,32 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     height: '100%',
   },
-  sectionHeader: {
-    paddingHorizontal: 18,
+  matchCountContainer: {
+    paddingHorizontal: 20,
     paddingVertical: 10,
   },
-  sectionTitle: {
+  matchCountText: {
     fontFamily: FONTS.medium,
     fontSize: 14,
     color: COLORS.textSecondary,
     letterSpacing: -0.2,
   },
+  headerDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginBottom: 6,
+  },
   listContent: {
-    paddingHorizontal: 10,
-    paddingBottom: 24,
+    paddingBottom: 32,
     flexGrow: 1,
   },
-  columnWrapper: {
-    justifyContent: 'space-between',
+  itemSeparator: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginLeft: 86, // Align separator with text, past avatar
   },
   emptyContainer: {
-    paddingVertical: 40,
+    paddingVertical: 60,
     alignItems: 'center',
   },
   emptyText: {
