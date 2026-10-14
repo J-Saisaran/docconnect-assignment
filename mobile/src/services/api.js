@@ -1,12 +1,40 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LOGGED_IN_USER_ID } from '../constants/theme';
 
-// Android emulator routes host localhost as 10.0.2.2; Web & iOS use localhost
-const DEFAULT_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
+// Automatically resolves the computer's backend URL across Web, Android Emulator, and Expo Go (physical phone)
+const resolveBaseUrl = () => {
+  // 1. Web Browser
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.location?.hostname) {
+      return `http://${window.location.hostname}:5000`;
+    }
+    return 'http://localhost:5000';
+  }
 
-let currentBaseUrl = DEFAULT_HOST;
+  // 2. Physical Device via Expo Go:
+  // Expo Go automatically knows the PC's Wi-Fi IP address that served the bundle!
+  const hostUri =
+    Constants?.expoConfig?.hostUri ||
+    Constants?.manifest2?.extra?.expoGo?.debuggerHost ||
+    Constants?.manifest?.debuggerHost;
+
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+      return `http://${ip}:5000`;
+    }
+  }
+
+  // 3. Fallback to your PC's active Wi-Fi LAN IP
+  const LOCAL_PC_IP = '192.168.31.168';
+  return `http://${LOCAL_PC_IP}:5000`;
+};
+
+let currentBaseUrl = resolveBaseUrl();
+console.log(`[DocConnect API] Configured Backend URL: ${currentBaseUrl}`);
 
 export const setApiBaseUrl = (url) => {
   currentBaseUrl = url;
@@ -15,7 +43,7 @@ export const setApiBaseUrl = (url) => {
 export const getApiBaseUrl = () => currentBaseUrl;
 
 const apiClient = axios.create({
-  timeout: 6000,
+  timeout: 8000,
   headers: {
     'Content-Type': 'application/json',
     'x-user-id': LOGGED_IN_USER_ID,
