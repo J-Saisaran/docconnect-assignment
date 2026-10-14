@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { COLORS, FONTS } from '../constants/theme';
 import { resolveImageSource } from '../constants/assetsMap';
 import { ConnectsBadgeIcon, AddUserIcon } from './SvgIcons';
 
-export const UserCard = ({ user, onConnect }) => {
+export const UserCard = ({ user, onConnect, onCancelRequest, onUndoConnect }) => {
   const [connecting, setConnecting] = useState(false);
   const isRequested = user?.isRequested;
 
@@ -13,8 +13,29 @@ export const UserCard = ({ user, onConnect }) => {
   const connectsCount = user?.connectsCount || 2;
   const avatarSource = resolveImageSource(user?.profileImage);
 
+  const handleCancel = onCancelRequest || onUndoConnect;
+
   const handlePress = async () => {
-    if (isRequested || connecting) return;
+    if (connecting) return;
+
+    if (isRequested) {
+      if (handleCancel) {
+        Alert.alert(
+          'Cancel Request?',
+          `Are you sure you want to cancel the connection request to ${name}?`,
+          [
+            { text: 'Keep Request', style: 'cancel' },
+            {
+              text: 'Cancel Request',
+              style: 'destructive',
+              onPress: () => handleCancel(user._id),
+            },
+          ]
+        );
+      }
+      return;
+    }
+
     setConnecting(true);
     try {
       await onConnect(user._id);
@@ -53,9 +74,10 @@ export const UserCard = ({ user, onConnect }) => {
           isRequested ? styles.buttonRequested : styles.buttonConnect,
         ]}
         activeOpacity={0.8}
-        disabled={isRequested || connecting}
+        disabled={connecting}
         onPress={handlePress}
       >
+
         {connecting ? (
           <ActivityIndicator size="small" color={COLORS.white} />
         ) : isRequested ? (

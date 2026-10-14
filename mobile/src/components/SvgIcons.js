@@ -164,3 +164,23 @@ export const RefreshIcon = ({ size = 18, color = COLORS.textSecondary }) => {
   );
 };
 
+export const GridIcon = ({ size = 18, color = COLORS.textSecondary }) => {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+      <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+      <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+      <Rect x="14" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+};
+
+export const ListIcon = ({ size = 18, color = COLORS.textSecondary }) => {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 6H20M4 12H20M4 18H20" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+};
+
+
