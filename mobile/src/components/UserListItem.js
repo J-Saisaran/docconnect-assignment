@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { COLORS, FONTS } from '../constants/theme';
 import { resolveImageSource } from '../constants/assetsMap';
 import { AddUserIcon, LocationPinIcon } from './SvgIcons';
 
-export const UserListItem = ({ user, onConnect }) => {
+export const UserListItem = ({ user, onConnect, onUndoConnect }) => {
   const [connecting, setConnecting] = useState(false);
   const isRequested = user?.isRequested;
 
@@ -14,7 +14,26 @@ export const UserListItem = ({ user, onConnect }) => {
   const avatarSource = resolveImageSource(user?.profileImage);
 
   const handlePress = async () => {
-    if (isRequested || connecting) return;
+    if (connecting) return;
+
+    if (isRequested) {
+      if (onUndoConnect) {
+        Alert.alert(
+          'Revert to Add User?',
+          `Revert connection request for ${name} back to the Add User (+) icon?`,
+          [
+            { text: 'Keep Requested', style: 'cancel' },
+            {
+              text: 'Revert to (+)',
+              style: 'destructive',
+              onPress: () => onUndoConnect(user._id),
+            },
+          ]
+        );
+      }
+      return;
+    }
+
     setConnecting(true);
     try {
       await onConnect(user._id);
@@ -55,9 +74,10 @@ export const UserListItem = ({ user, onConnect }) => {
           isRequested ? styles.requestedButton : styles.connectButton,
         ]}
         activeOpacity={0.7}
-        disabled={isRequested || connecting}
+        disabled={connecting}
         onPress={handlePress}
       >
+
         {connecting ? (
           <ActivityIndicator size="small" color={COLORS.primary} />
         ) : isRequested ? (

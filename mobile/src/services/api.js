@@ -274,3 +274,34 @@ export const sendConnectRequest = async (recipientId, senderId = LOGGED_IN_USER_
     return { success: true, recipientId, status: 'requested' };
   }
 };
+
+/**
+ * Reverts connection request for a specific user ID
+ */
+export const removeLocalRequestedId = async (userId) => {
+  try {
+    const existing = await getLocalRequestedIds();
+    const updated = existing.filter((id) => id !== userId && id !== userId?.toString());
+    await AsyncStorage.setItem(STORAGE_KEY_REQUESTED, JSON.stringify(updated));
+    await apiClient.delete(`${currentBaseUrl}/connect/${userId}`).catch(() => {});
+    return updated;
+  } catch (err) {
+    console.warn('Error removing requested id:', err);
+    return [];
+  }
+};
+
+/**
+ * Reverts all requested connections (clears AsyncStorage + MongoDB records)
+ */
+export const clearAllRequestedState = async () => {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEY_REQUESTED);
+    await apiClient.post(`${currentBaseUrl}/connect/reset`).catch(() => {});
+    return true;
+  } catch (err) {
+    console.warn('Error clearing requested state:', err);
+    return false;
+  }
+};
+

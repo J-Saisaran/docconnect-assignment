@@ -82,7 +82,41 @@ const getRequestedUserIds = async (req, res) => {
   }
 };
 
+// POST or GET /connect/reset - Clear all connection requests
+const resetConnections = async (req, res) => {
+  try {
+    await ConnectionRequest.deleteMany({});
+    return res.status(200).json({
+      success: true,
+      message: 'All connection requests have been reset',
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// DELETE /connect/:recipientId - Remove request for a single user
+const deleteConnectRequest = async (req, res) => {
+  try {
+    const { recipientId } = req.params;
+    const senderId = req.headers['x-user-id'] || req.query.senderId || LOGGED_IN_USER_ID;
+    await ConnectionRequest.deleteMany({
+      sender: senderId,
+      recipient: recipientId,
+    });
+    return res.status(200).json({
+      success: true,
+      message: `Connection request to ${recipientId} removed`,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 module.exports = {
   createConnectRequest,
   getRequestedUserIds,
+  resetConnections,
+  deleteConnectRequest,
 };
+

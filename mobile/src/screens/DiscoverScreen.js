@@ -8,6 +8,7 @@ import {
   RefreshControl,
   StatusBar,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -16,7 +17,13 @@ import { UserListItem } from '../components/UserListItem';
 import { DiscoverIcon, BackArrowIcon } from '../components/SvgIcons';
 import { LoadingState } from '../components/LoadingState';
 import { ErrorState } from '../components/ErrorState';
-import { fetchUsers, sendConnectRequest } from '../services/api';
+import {
+  fetchUsers,
+  sendConnectRequest,
+  clearAllRequestedState,
+  removeLocalRequestedId,
+} from '../services/api';
+
 
 export const DiscoverScreen = () => {
   const insets = useSafeAreaInsets();
@@ -63,6 +70,37 @@ export const DiscoverScreen = () => {
     }
   };
 
+  const handleUndoConnect = async (userId) => {
+    // Revert single user back to '+' Add User icon
+    setUsers((prev) =>
+      prev.map((u) => (u._id === userId ? { ...u, isRequested: false } : u))
+    );
+    try {
+      await removeLocalRequestedId(userId);
+    } catch (err) {
+      console.error('Failed to undo connect request:', err);
+    }
+  };
+
+  const handleResetAll = () => {
+    Alert.alert(
+      'Reset All for Screen Recording?',
+      'Revert all "Requested" buttons back to the "+" Add User icon?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset to (+)',
+          style: 'destructive',
+          onPress: async () => {
+            setUsers((prev) => prev.map((u) => ({ ...u, isRequested: false })));
+            await clearAllRequestedState();
+            Alert.alert('Reset Complete', 'All buttons are now back to the Add User (+) icon!');
+          },
+        },
+      ]
+    );
+  };
+
   const filteredUsers = users.filter((u) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
@@ -101,12 +139,17 @@ export const DiscoverScreen = () => {
         </View>
       </View>
 
-      {/* Subtitle: "X profile matches" matching Discover - search.png */}
-      <View style={styles.matchCountContainer}>
+      {/* Subtitle: "X profile matches" - Long press to reset all */}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onLongPress={handleResetAll}
+        delayLongPress={700}
+        style={styles.matchCountContainer}
+      >
         <Text style={styles.matchCountText}>
           {filteredUsers.length} profile {filteredUsers.length === 1 ? 'match' : 'matches'}
         </Text>
-      </View>
+      </TouchableOpacity>
       <View style={styles.headerDivider} />
 
       {/* Vertical List of People matching Discover - search.png */}
@@ -114,9 +157,14 @@ export const DiscoverScreen = () => {
         data={filteredUsers}
         keyExtractor={(item) => item._id.toString()}
         renderItem={({ item }) => (
-          <UserListItem user={item} onConnect={handleConnect} />
+          <UserListItem
+            user={item}
+            onConnect={handleConnect}
+            onUndoConnect={handleUndoConnect}
+          />
         )}
         ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+
         ListEmptyComponent={
           loading ? (
             <LoadingState message="Finding medical professionals..." />
