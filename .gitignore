@@ -25,6 +25,11 @@ yarn-error.log*
 # OS & Editor generated files
 .DS_Store
 __MACOSX/
+Thebrandopedia Assignment/
+.claude/
+*/.claude/
+AGENTS.md
+*/AGENTS.md
 Thumbs.db
 .vscode/
 .idea/
