@@ -1,35 +1,26 @@
+require('dotenv').config();
+const path = require('path');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
 let mongoMemoryServer = null;
 
 const connectDB = async () => {
-  const uri = process.env.MONGODB_URI;
+  const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/docconnect';
 
-  if (uri) {
-    try {
-      console.log(`Connecting to MongoDB URI: ${uri}`);
-      await mongoose.connect(uri, { serverSelectionTimeoutMS: 2000 });
-      console.log(' MongoDB connected successfully');
-      return;
-    } catch (err) {
-      console.error('Failed to connect to provided MONGODB_URI:', err.message);
-    }
-  }
-
-  // Attempt local MongoDB instance
+  // 1. Attempt connection to primary MongoDB URI (e.g. local MongoDB instance)
   try {
-    const localUri = 'mongodb://127.0.0.1:27017/docconnect';
-    console.log(`Attempting connection to local MongoDB at ${localUri}...`);
-    await mongoose.connect(localUri, { serverSelectionTimeoutMS: 2000 });
-    console.log(' Local MongoDB connected successfully');
+    console.log(`Connecting to MongoDB URI: ${uri}`);
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 3000 });
+    console.log(' MongoDB connected successfully to local instance');
     return;
   } catch (err) {
-    console.log('Local MongoDB not available. Starting in-memory MongoDB instance for seamless zero-config evaluation...');
+    console.error(`Failed to connect to ${uri}:`, err.message);
   }
 
-  // Fallback to in-memory MongoDB
+  // 2. Fallback to in-memory MongoDB if local instance is unavailable
   try {
+    console.log('Local MongoDB not available. Starting in-memory MongoDB instance for seamless zero-config evaluation...');
     mongoMemoryServer = await MongoMemoryServer.create();
     const memoryUri = mongoMemoryServer.getUri();
     await mongoose.connect(memoryUri);
@@ -53,3 +44,8 @@ const disconnectDB = async () => {
 };
 
 module.exports = { connectDB, disconnectDB };
+
+// If executed directly from CLI (e.g. node src/config/db.js), run connectDB
+if (require.main === module) {
+  connectDB();
+}

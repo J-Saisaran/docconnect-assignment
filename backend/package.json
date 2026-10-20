@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node src/server.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "mongo:start": "cmd /c C:\\Users\\Admin\\mongodb\\start-mongodb.bat",
+    "mongo:status": "powershell -NoProfile -Command \"Get-Process mongod -ErrorAction SilentlyContinue | Select-Object Id, ProcessName\""
   },
   "keywords": [],
   "author": "",
