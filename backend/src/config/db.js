@@ -45,7 +45,3 @@ const disconnectDB = async () => {
 
 module.exports = { connectDB, disconnectDB };
 
-// If executed directly from CLI (e.g. node src/config/db.js), run connectDB
-if (require.main === module) {
-  connectDB();
-}
