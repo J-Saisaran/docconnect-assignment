@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, FONTS } from '../constants/theme';
+import { COLORS } from '../constants/theme';
 import { PlusIcon } from './SvgIcons';
+
+const LOGO_IMAGE = require('../../assets/assignment/docconnect-logo.png');
 
 export const Header = ({ onPlusPress }) => {
   const insets = useSafeAreaInsets();
@@ -11,8 +13,12 @@ export const Header = ({ onPlusPress }) => {
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 16) }]}>
       <View style={styles.contentRow}>
         <View style={styles.logoRow}>
-          <Text style={styles.logoDoc}>Doc</Text>
-          <Text style={styles.logoConnect}>Connect</Text>
+          <Image
+            source={LOGO_IMAGE}
+            style={styles.logoImage}
+            resizeMode="contain"
+            accessibilityLabel="DocConnect"
+          />
         </View>
 
         <TouchableOpacity
@@ -42,20 +48,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
-  logoDoc: {
-    fontFamily: FONTS.bold,
-    fontSize: 24,
-    color: COLORS.textPrimary,
-    letterSpacing: -0.5,
-  },
-  logoConnect: {
-    fontFamily: FONTS.bold,
-    fontSize: 24,
-    color: COLORS.primaryDark,
-    letterSpacing: -0.5,
+  logoImage: {
+    width: 156,
+    height: 22,
   },
   plusButton: {
     width: 38,

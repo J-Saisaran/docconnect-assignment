@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Dimensions,
+  ScrollView,
+} from 'react-native';
 import { COLORS, FONTS } from '../constants/theme';
 import { resolveImageSource } from '../constants/assetsMap';
 import { HeartIcon, SendIcon } from './SvgIcons';
@@ -9,6 +17,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export const PostCard = ({ post }) => {
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post?.likesCount ?? 5);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const scrollViewRef = useRef(null);
 
   const author = post?.author;
   const authorName = author?.name || 'Docconnect';
@@ -16,8 +26,16 @@ export const PostCard = ({ post }) => {
   const authorAvatar = resolveImageSource(
     author?.profileImage || '/assets/Profile image/Image-1.png'
   );
-  const postImage = post?.image ? resolveImageSource(post.image) : null;
-  const isMultiImage = post?.carouselImages && post.carouselImages.length > 1;
+
+  // Extract all carousel images, falling back to post.image if carouselImages is empty
+  const mediaList =
+    Array.isArray(post?.carouselImages) && post.carouselImages.length > 0
+      ? post.carouselImages
+      : post?.image
+      ? [post.image]
+      : [];
+
+  const isMultiImage = mediaList.length > 1;
 
   const handleLikeToggle = () => {
     setLiked((prev) => {
@@ -25,6 +43,24 @@ export const PostCard = ({ post }) => {
       setLikesCount((count) => (next ? count + 1 : count - 1));
       return next;
     });
+  };
+
+  const handleScroll = (event) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / SCREEN_WIDTH);
+    if (index !== activeIndex && index >= 0 && index < mediaList.length) {
+      setActiveIndex(index);
+    }
+  };
+
+  const scrollToIndex = (index) => {
+    if (index >= 0 && index < mediaList.length) {
+      scrollViewRef.current?.scrollTo({
+        x: index * SCREEN_WIDTH,
+        animated: true,
+      });
+      setActiveIndex(index);
+    }
   };
 
   return (
@@ -43,15 +79,79 @@ export const PostCard = ({ post }) => {
       {/* Post Text Content */}
       <Text style={styles.postContent}>{post?.content}</Text>
 
-      {/* Post Media */}
-      {postImage && (
+      {/* Post Media / Swipeable Carousel */}
+      {mediaList.length > 0 && (
         <View style={styles.imageContainer}>
-          <Image source={postImage} style={styles.postImage} resizeMode="cover" />
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            nestedScrollEnabled={true}
+            bounces={false}
+            scrollEventThrottle={16}
+            onScroll={handleScroll}
+            onMomentumScrollEnd={handleScroll}
+            style={styles.imageScroll}
+          >
+            {mediaList.map((item, index) => {
+              const src = resolveImageSource(item);
+              return (
+                <View key={`${item}-${index}`} style={styles.imageSlide}>
+                  <Image source={src} style={styles.postImage} resizeMode="cover" />
+                </View>
+              );
+            })}
+          </ScrollView>
 
-          {/* Carousel Badge (1/2) if multi-image */}
+          {/* Dynamic Carousel Badge (e.g. 1/2, 2/2) */}
           {isMultiImage && (
-            <View style={styles.carouselBadge}>
-              <Text style={styles.carouselBadgeText}>1/2</Text>
+            <View style={styles.carouselBadge} pointerEvents="none">
+              <Text style={styles.carouselBadgeText}>
+                {activeIndex + 1}/{mediaList.length}
+              </Text>
+            </View>
+          )}
+
+          {/* Left Navigation Arrow */}
+          {isMultiImage && activeIndex > 0 && (
+            <TouchableOpacity
+              style={[styles.arrowButton, styles.leftArrow]}
+              onPress={() => scrollToIndex(activeIndex - 1)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Text style={styles.arrowText}>‹</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Right Navigation Arrow */}
+          {isMultiImage && activeIndex < mediaList.length - 1 && (
+            <TouchableOpacity
+              style={[styles.arrowButton, styles.rightArrow]}
+              onPress={() => scrollToIndex(activeIndex + 1)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Text style={styles.arrowText}>›</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Pagination Dots */}
+          {isMultiImage && (
+            <View style={styles.dotsContainer}>
+              {mediaList.map((_, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => scrollToIndex(idx)}
+                  activeOpacity={0.8}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  style={[
+                    styles.dot,
+                    idx === activeIndex ? styles.activeDot : styles.inactiveDot,
+                  ]}
+                />
+              ))}
             </View>
           )}
         </View>
@@ -141,6 +241,17 @@ const styles = StyleSheet.create({
     height: 420,
     backgroundColor: COLORS.surfaceWarm,
     position: 'relative',
+    overflow: 'hidden',
+  },
+  imageScroll: {
+    width: SCREEN_WIDTH,
+    height: 420,
+  },
+  imageSlide: {
+    width: SCREEN_WIDTH,
+    height: 420,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   postImage: {
     width: '100%',
@@ -154,11 +265,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 14,
+    zIndex: 10,
   },
   carouselBadgeText: {
     fontFamily: FONTS.medium,
     fontSize: 12,
     color: COLORS.white,
+  },
+  dotsContainer: {
+    position: 'absolute',
+    bottom: 14,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 6,
+    zIndex: 10,
+  },
+  dot: {
+    height: 6,
+    borderRadius: 3,
+  },
+  activeDot: {
+    backgroundColor: COLORS.white,
+    width: 16,
+  },
+  inactiveDot: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    width: 6,
+  },
+  arrowButton: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(41, 41, 43, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  leftArrow: {
+    left: 12,
+  },
+  rightArrow: {
+    right: 12,
+  },
+  arrowText: {
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: -2,
+    textAlign: 'center',
   },
   actionsRow: {
     flexDirection: 'row',
